@@ -248,6 +248,7 @@
 
         // Call Gemini API with Smart Multi-Model Fallback
        // Call Gemini API with Correct Endpoint & Fallback
+// Call Gemini API with Official Active Models
 async function callGemini(promptText, isJson = false) {
     const apiKey = document.getElementById('apiKey').value.trim();
     if (!apiKey) {
@@ -255,10 +256,10 @@ async function callGemini(promptText, isJson = false) {
         return null;
     }
 
-    // القائمة الصحيحة والمحدثة لنقاط الاتصال المعتمدة
+    // النماذج الرسمية المستقرة النشطة حالياً
     const modelsToTry = [
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent"
     ];
 
     const payload = {
@@ -285,6 +286,7 @@ async function callGemini(promptText, isJson = false) {
                 return data.candidates[0].content.parts[0].text;
             } else if (data.error) {
                 lastError = data.error.message;
+                // يكمل للتجربة على النموذج التالي في القائمة بدلاً من التوقف
             }
         } catch (err) {
             lastError = err.message;
@@ -294,7 +296,6 @@ async function callGemini(promptText, isJson = false) {
     alert("فشل الاتصال بالذكاء الاصطناعي: " + lastError);
     return null;
 }
-
         // Generate Exam
         async function generateExam() {
             const text = await extractPdfText();
