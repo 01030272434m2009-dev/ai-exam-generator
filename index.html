@@ -133,8 +133,6 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        let extractedText = "";
-
         // PDF Text Extraction Function
         async function extractPdfText() {
             const fileInput = document.getElementById('pdfInput');
@@ -150,25 +148,30 @@
             status.classList.remove('hidden');
             status.innerText = "جاري استخراج النص من الصفحات المختارة...";
 
-            const file = fileInput.files[0];
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            try {
+                const file = fileInput.files[0];
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
 
-            let textContent = "";
-            const finalEnd = Math.min(endPage, pdf.numPages);
+                let textContent = "";
+                const finalEnd = Math.min(endPage, pdf.numPages);
 
-            for (let i = startPage; i <= finalEnd; i++) {
-                const page = await pdf.getPage(i);
-                const text = await page.getTextContent();
-                const pageText = text.items.map(item => item.str).join(' ');
-                textContent += `\n--- [صفحة ${i}] ---\n` + pageText;
+                for (let i = startPage; i <= finalEnd; i++) {
+                    const page = await pdf.getPage(i);
+                    const text = await page.getTextContent();
+                    const pageText = text.items.map(item => item.str).join(' ');
+                    textContent += `\n--- [صفحة ${i}] ---\n` + pageText;
+                }
+
+                status.innerText = `تم استخراج الصفحات من ${startPage} إلى ${finalEnd} بنجاح!`;
+                return textContent;
+            } catch (err) {
+                alert("حدث خطأ أثناء قراءة ملف PDF: " + err.message);
+                return null;
             }
-
-            status.innerText = `تم استخراج الصفحات من ${startPage} إلى ${finalEnd} بنجاح!`;
-            return textContent;
         }
 
-        // Call Gemini API
+        // Call Gemini API Safely
         async function callGemini(promptText, isJson = false) {
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) {
@@ -176,6 +179,7 @@
                 return null;
             }
 
+            // Using gemini-1.5-flash endpoint
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             
             const payload = {
@@ -192,8 +196,19 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
+
                 const data = await response.json();
-                return data.candidates[0].content.parts[0].text;
+
+                if (!response.ok) {
+                    throw new Error(data.error?.message || `خطأ من الخادم (${response.status})`);
+                }
+
+                if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                    return data.candidates[0].content.parts[0].text;
+                } else {
+                    throw new Error("لم يقم الذكاء الاصطناعي بإرجاع نص صالح، تأكد من صحة البيانات أو المفتاح.");
+                }
+
             } catch (err) {
                 alert("حدث خطأ أثناء التواصل مع الذكاء الاصطناعي: " + err.message);
                 return null;
@@ -220,7 +235,7 @@
                     "id": 1,
                     "question": "نص السؤال هنا",
                     "options": ["خيار A", "خيار B", "خيار C", "خيار D"],
-                    "correctAnswer": 0, // رقم المؤشر للخيار الصحيح (0-3)
+                    "correctAnswer": 0,
                     "explanation": "شرح تفصيلي ولماذا هذه الإجابة هي الصحيحة بناءً على النص",
                     "evidence": "الدليل المقتبس نصاً من الكتاب"
                   }
@@ -229,7 +244,15 @@
                 ${text}`;
 
                 const jsonResult = await callGemini(prompt, true);
-                if (jsonResult) renderMCQExam(JSON.parse(jsonResult));
+                if (jsonResult) {
+                    try {
+                        // Clean markdown json ticks if present
+                        const cleanJson = jsonResult.replace(/```json/g, '').replace(/```/g, '').trim();
+                        renderMCQExam(JSON.parse(cleanJson));
+                    } catch(e) {
+                        alert("حدث خطأ في معالجة تنسيق الأسئلة من الذكاء الاصطناعي.");
+                    }
+                }
 
             } else {
                 const prompt = `أنت معلم خبير. قم بتوليد أسئلة مقالية واختبارات شرح وافية بناءً على النص التالي:
@@ -280,7 +303,6 @@
             const feedback = document.getElementById(`feedback-${qIdx}`);
             const optionsDiv = document.getElementById(`options-${qIdx}`);
 
-            // Disable all buttons
             Array.from(optionsDiv.children).forEach(btn => btn.onclick = null);
 
             feedback.classList.remove('hidden');
