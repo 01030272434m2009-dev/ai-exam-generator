@@ -171,50 +171,68 @@
             }
         }
 
-        // Call Gemini API Safely
-        async function callGemini(promptText, isJson = false) {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            if (!apiKey) {
-                alert("يرجى إدخال Gemini API Key أولاً!");
-                return null;
+    // Call Gemini API Safely
+async function callGemini(promptText, isJson = false) {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey) {
+        alert("يرجى إدخال Gemini API Key أولاً!");
+        return null;
+    }
+
+    // استخدام gemini-2.5-flash أو gemini-1.5-flash مع v1 المحدث
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    
+    const payload = {
+        contents: [{ parts: [{ text: promptText }] }]
+    };
+
+    if (isJson) {
+        payload.generationConfig = { responseMimeType: "application/json" };
+    }
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            // إذا لم يعمل gemini-2.5-flash جرب المحاولة بالنموذج الإحتياطي تلقائياً
+            if (data.error?.code === 404) {
+                return await fallbackGeminiCall(promptText, isJson, apiKey);
             }
-
-            // Using gemini-1.5-flash endpoint
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-            
-            const payload = {
-                contents: [{ parts: [{ text: promptText }] }]
-            };
-
-            if (isJson) {
-                payload.generationConfig = { responseMimeType: "application/json" };
-            }
-
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error?.message || `خطأ من الخادم (${response.status})`);
-                }
-
-                if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-                    return data.candidates[0].content.parts[0].text;
-                } else {
-                    throw new Error("لم يقم الذكاء الاصطناعي بإرجاع نص صالح، تأكد من صحة البيانات أو المفتاح.");
-                }
-
-            } catch (err) {
-                alert("حدث خطأ أثناء التواصل مع الذكاء الاصطناعي: " + err.message);
-                return null;
-            }
+            throw new Error(data.error?.message || `خطأ من الخادم (${response.status})`);
         }
 
+        if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+            return data.candidates[0].content.parts[0].text;
+        } else {
+            throw new Error("لم يقم الذكاء الاصطناعي بإرجاع نص صالح، تأكد من صحة البيانات أو المفتاح.");
+        }
+
+    } catch (err) {
+        alert("حدث خطأ أثناء التواصل مع الذكاء الاصطناعي: " + err.message);
+        return null;
+    }
+}
+
+// دالة احتياطية في حالة وجود اختلاف في اسم النموذج بالـ API
+async function fallbackGeminiCall(promptText, isJson, apiKey) {
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    const payload = { contents: [{ parts: [{ text: promptText }] }] };
+    if (isJson) payload.generationConfig = { responseMimeType: "application/json" };
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+}
         // Generate Exam Function
         async function generateExam() {
             const text = await extractPdfText();
