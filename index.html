@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منصة الاختبارات والتلخيص الذكية | AI Exam Generator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PDF.js for extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- MarkedJS for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+        body { font-family: 'Cairo', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-12">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-extrabold text-indigo-400 flex items-center gap-2">
+                <i class="fa-solid fa-brain text-2xl"></i> مساعد الدراسة والاختبارات الذكي
+            </h1>
+            <div class="flex items-center gap-2">
+                <input type="password" id="apiKey" placeholder="ادخل Gemini API Key" class="bg-slate-700 text-xs text-white px-3 py-2 rounded border border-slate-600 focus:outline-none focus:border-indigo-500 w-48 sm:w-64">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded font-bold transition">احصل على مفتاح مجاني</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 mt-4">
+
+        <!-- Controls Side Panel -->
+        <div class="lg:col-span-4 bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-5 h-fit">
+            
+            <!-- PDF Upload -->
+            <div>
+                <label class="block text-sm font-semibold mb-2 text-slate-300">1. رفع الكتاب / الملف (PDF):</label>
+                <input type="file" id="pdfInput" accept="application/pdf" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer">
+                <div id="pdfStatus" class="text-xs text-indigo-400 mt-2 hidden"></div>
+            </div>
+
+            <hr class="border-slate-700">
+
+            <!-- Page Selection -->
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold mb-1 text-slate-300">من صفحة:</label>
+                    <input type="number" id="startPage" value="1" min="1" class="w-full bg-slate-700 p-2 rounded text-sm text-center border border-slate-600">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1 text-slate-300">إلى صفحة:</label>
+                    <input type="number" id="endPage" value="10" min="1" class="w-full bg-slate-700 p-2 rounded text-sm text-center border border-slate-600">
+                </div>
+            </div>
+
+            <!-- Quiz Options -->
+            <div class="space-y-3">
+                <label class="block text-sm font-semibold text-slate-300">2. إعدادات الاختبار / الطلب:</label>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">عدد الأسئلة:</label>
+                        <input type="number" id="qCount" value="10" min="1" max="50" class="w-full bg-slate-700 p-2 rounded text-sm text-center border border-slate-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">الصعوبة:</label>
+                        <select id="difficulty" class="w-full bg-slate-700 p-2 rounded text-sm text-slate-200 border border-slate-600">
+                            <option value="متدرج من السهل إلى الصعب">متدرج</option>
+                            <option value="سهل">سهل</option>
+                            <option value="متوسط">متوسط</option>
+                            <option value="صعب جداً للعباقرة">صعب جداً</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">نوع الأسئلة:</label>
+                    <select id="qType" class="w-full bg-slate-700 p-2 rounded text-sm text-slate-200 border border-slate-600">
+                        <option value="mcq">اختيار من متعدد (MCQ)</option>
+                        <option value="essay">أسئلة مقالية وشرح</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="space-y-2 pt-2">
+                <button onclick="generateExam()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition flex items-center justify-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-file-pen"></i> إنشاء اختبار تفاعلي
+                </button>
+                <button onclick="generateSummary()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-list-check"></i> تلخيص وتقسيم المواضيع
+                </button>
+            </div>
+
+            <!-- Custom AI Prompt -->
+            <div class="pt-2">
+                <label class="block text-xs text-slate-400 mb-1">اسأل AI سؤال محدد عن الصفحات المحدد:</label>
+                <div class="flex gap-2">
+                    <input type="text" id="customPrompt" placeholder="مثال: اشرح لي قانون نيوتن الثاني من النص..." class="flex-1 bg-slate-700 p-2 rounded text-xs text-white border border-slate-600">
+                    <button onclick="askCustomAI()" class="bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded text-xs font-bold"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="lg:col-span-8 bg-slate-800 p-6 rounded-xl border border-slate-700 min-h-[500px]">
+            
+            <!-- Loading Spinner -->
+            <div id="loader" class="hidden flex-col items-center justify-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mb-4"></div>
+                <p class="text-indigo-300 text-sm animate-pulse" id="loadingText">جاري قراءة وتخزين الصفحات وحوسبتها...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="text-center py-20 text-slate-500">
+                <i class="fa-solid fa-file-pdf text-6xl mb-4 text-slate-600"></i>
+                <p class="text-lg">قم برفع كتابك واختيار الصفحات للبدء في إنتاج الاختبارات والملخصات</p>
+            </div>
+
+            <!-- Content Render Area -->
+            <div id="outputArea" class="space-y-6 hidden"></div>
+
+        </div>
+
+    </main>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        let extractedText = "";
+
+        // PDF Text Extraction Function
+        async function extractPdfText() {
+            const fileInput = document.getElementById('pdfInput');
+            const startPage = parseInt(document.getElementById('startPage').value);
+            const endPage = parseInt(document.getElementById('endPage').value);
+            const status = document.getElementById('pdfStatus');
+
+            if (!fileInput.files[0]) {
+                alert("برجاء اختيار ملف PDF أولاً");
+                return null;
+            }
+
+            status.classList.remove('hidden');
+            status.innerText = "جاري استخراج النص من الصفحات المختارة...";
+
+            const file = fileInput.files[0];
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+
+            let textContent = "";
+            const finalEnd = Math.min(endPage, pdf.numPages);
+
+            for (let i = startPage; i <= finalEnd; i++) {
+                const page = await pdf.getPage(i);
+                const text = await page.getTextContent();
+                const pageText = text.items.map(item => item.str).join(' ');
+                textContent += `\n--- [صفحة ${i}] ---\n` + pageText;
+            }
+
+            status.innerText = `تم استخراج الصفحات من ${startPage} إلى ${finalEnd} بنجاح!`;
+            return textContent;
+        }
+
+        // Call Gemini API
+        async function callGemini(promptText, isJson = false) {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                alert("يرجى إدخال Gemini API Key أولاً!");
+                return null;
+            }
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }]
+            };
+
+            if (isJson) {
+                payload.generationConfig = { responseMimeType: "application/json" };
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
+            } catch (err) {
+                alert("حدث خطأ أثناء التواصل مع الذكاء الاصطناعي: " + err.message);
+                return null;
+            }
+        }
+
+        // Generate Exam Function
+        async function generateExam() {
+            const text = await extractPdfText();
+            if (!text) return;
+
+            showLoader("جاري توليد الأسئلة الذكية بناءً على إعداداتك...");
+
+            const qCount = document.getElementById('qCount').value;
+            const difficulty = document.getElementById('difficulty').value;
+            const qType = document.getElementById('qType').value;
+
+            if (qType === 'mcq') {
+                const prompt = `أنت معلم خبير ومصمم اختبارات ذكي. قم بقراءة النص التالي واستخراج اختبار من نوع اختيار من متعدد.
+                عدد الأسئلة: ${qCount}. مستوى الصعوبة: ${difficulty}.
+                يجب أن تعيد الإجابة بصيغة JSON فقط بهذه الهيكلية الدقيقة:
+                [
+                  {
+                    "id": 1,
+                    "question": "نص السؤال هنا",
+                    "options": ["خيار A", "خيار B", "خيار C", "خيار D"],
+                    "correctAnswer": 0, // رقم المؤشر للخيار الصحيح (0-3)
+                    "explanation": "شرح تفصيلي ولماذا هذه الإجابة هي الصحيحة بناءً على النص",
+                    "evidence": "الدليل المقتبس نصاً من الكتاب"
+                  }
+                ]
+                النص المصدر:
+                ${text}`;
+
+                const jsonResult = await callGemini(prompt, true);
+                if (jsonResult) renderMCQExam(JSON.parse(jsonResult));
+
+            } else {
+                const prompt = `أنت معلم خبير. قم بتوليد أسئلة مقالية واختبارات شرح وافية بناءً على النص التالي:
+                عدد الأسئلة: ${qCount}. مستوى الصعوبة: ${difficulty}.
+                قم بكتابة السؤال، والإجابة النموذجية مع الشرح والتحليل المباشر والدليل من النص.
+                
+                النص المصدر:
+                ${text}`;
+
+                const markdownResult = await callGemini(prompt, false);
+                if (markdownResult) renderMarkdownText(markdownResult);
+            }
+
+            hideLoader();
+        }
+
+        // Render MCQ Interactive UI
+        function renderMCQExam(data) {
+            const area = document.getElementById('outputArea');
+            area.innerHTML = `<h2 class="text-2xl font-bold text-indigo-400 mb-6 flex items-center gap-2"><i class="fa-solid fa-list-check"></i> اختبار تفاعلي شامل</h2>`;
+
+            data.forEach((q, idx) => {
+                const qCard = document.createElement('div');
+                qCard.className = "bg-slate-700/50 p-5 rounded-lg border border-slate-600 mb-4 space-y-4";
+                qCard.innerHTML = `
+                    <p class="font-bold text-lg text-slate-100">${idx + 1}. ${q.question}</p>
+                    <div class="space-y-2" id="options-${idx}">
+                        ${q.options.map((opt, oIdx) => `
+                            <button onclick="checkAnswer(${idx}, ${oIdx}, ${q.correctAnswer}, '${encodeURIComponent(q.explanation)}', '${encodeURIComponent(q.evidence)}')" 
+                                    class="w-full text-right p-3 rounded bg-slate-800 hover:bg-slate-600 border border-slate-700 transition text-slate-200">
+                                ${opt}
+                            </button>
+                        `).join('')}
+                    </div>
+                    <div id="feedback-${idx}" class="hidden p-4 rounded-lg text-sm space-y-2"></div>
+                `;
+                area.appendChild(qCard);
+            });
+
+            showOutput();
+        }
+
+        // Check Answer & Show Evidence/Analysis
+        function checkAnswer(qIdx, selectedIdx, correctIdx, encExp, encEv) {
+            const exp = decodeURIComponent(encExp);
+            const ev = decodeURIComponent(encEv);
+            
+            const feedback = document.getElementById(`feedback-${qIdx}`);
+            const optionsDiv = document.getElementById(`options-${qIdx}`);
+
+            // Disable all buttons
+            Array.from(optionsDiv.children).forEach(btn => btn.onclick = null);
+
+            feedback.classList.remove('hidden');
+
+            if (selectedIdx === correctIdx) {
+                feedback.className = "p-4 rounded-lg text-sm bg-emerald-950 border border-emerald-600 text-emerald-200 space-y-1";
+                feedback.innerHTML = `
+                    <div class="font-bold text-emerald-400"><i class="fa-solid fa-circle-check"></i> إجابة صحيحة! أحسنت.</div>
+                    <div><b>التحليل والشرح:</b> ${exp}</div>
+                `;
+            } else {
+                feedback.className = "p-4 rounded-lg text-sm bg-rose-950 border border-rose-600 text-rose-200 space-y-2";
+                feedback.innerHTML = `
+                    <div class="font-bold text-rose-400"><i class="fa-solid fa-circle-xmark"></i> إجابة خاطئة!</div>
+                    <div><b>الشرح والتحليل:</b> ${exp}</div>
+                    <div class="bg-rose-900/40 p-2 rounded border border-rose-800 text-xs"><b>الدليل من الكتاب:</b> "${ev}"</div>
+                `;
+            }
+        }
+
+        // Generate Summary
+        async function generateSummary() {
+            const text = await extractPdfText();
+            if (!text) return;
+
+            showLoader("جاري قراءة الكتاب وتكثيف الملخص وتقسيم الدروس...");
+
+            const prompt = `أنت مساعد أكاديمي خبير. قم بتحليل النص المرفق وتقسيمه بشكل ذكي جداً إلى مواضيع ودروس رئيسية، ثم قدم ملخصاً شاملاً ومنظماً لكل جزء باستخدام النقاط والرموز التعبيرية والعناوين الجانبية.
+            
+            النص:
+            ${text}`;
+
+            const res = await callGemini(prompt, false);
+            if (res) renderMarkdownText(res);
+            hideLoader();
+        }
+
+        // Ask Custom AI Question
+        async function askCustomAI() {
+            const promptInput = document.getElementById('customPrompt').value;
+            if (!promptInput) return alert("اكتب سؤالك أولاً!");
+
+            const text = await extractPdfText();
+            if (!text) return;
+
+            showLoader("جاري الإجابة عن سؤالك واستخراج الشرح...");
+
+            const fullPrompt = `بناءً على النص التالي من الكتاب، أجب على سؤال المستخدم بشكل دقيق وواضح مع الشرح:
+            سؤال المستخدم: ${promptInput}
+            
+            النص المصدر:
+            ${text}`;
+
+            const res = await callGemini(fullPrompt, false);
+            if (res) renderMarkdownText(res);
+            hideLoader();
+        }
+
+        // UI Helpers
+        function renderMarkdownText(text) {
+            const area = document.getElementById('outputArea');
+            area.innerHTML = `<div class="prose prose-invert max-w-none space-y-4 leading-relaxed">${marked.parse(text)}</div>`;
+            showOutput();
+        }
+
+        function showLoader(txt) {
+            document.getElementById('loadingText').innerText = txt;
+            document.getElementById('loader').classList.remove('hidden');
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('outputArea').classList.add('hidden');
+        }
+
+        function hideLoader() {
+            document.getElementById('loader').classList.add('hidden');
+        }
+
+        function showOutput() {
+            document.getElementById('outputArea').classList.remove('hidden');
+            document.getElementById('emptyState').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
