@@ -247,53 +247,53 @@
         }
 
         // Call Gemini API with Smart Multi-Model Fallback
-        async function callGemini(promptText, isJson = false) {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            if (!apiKey) {
-                alert("يرجى إدخال Gemini API Key أولاً!");
-                return null;
+       // Call Gemini API with Correct Endpoint & Fallback
+async function callGemini(promptText, isJson = false) {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey) {
+        alert("يرجى إدخال Gemini API Key أولاً!");
+        return null;
+    }
+
+    // القائمة الصحيحة والمحدثة لنقاط الاتصال المعتمدة
+    const modelsToTry = [
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    ];
+
+    const payload = {
+        contents: [{ parts: [{ text: promptText }] }]
+    };
+
+    if (isJson) {
+        payload.generationConfig = { responseMimeType: "application/json" };
+    }
+
+    let lastError = "";
+
+    for (const endpoint of modelsToTry) {
+        try {
+            const response = await fetch(`${endpoint}?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                return data.candidates[0].content.parts[0].text;
+            } else if (data.error) {
+                lastError = data.error.message;
             }
-
-            // قائمة بالنماذج المتاحة لتجربتها بالترتيب لضمان عمل المفتاح بدون خطأ Not Found
-            const modelsToTry = [
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-                "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent"
-            ];
-
-            const payload = {
-                contents: [{ parts: [{ text: promptText }] }]
-            };
-
-            if (isJson) {
-                payload.generationConfig = { responseMimeType: "application/json" };
-            }
-
-            let lastError = "";
-
-            for (const endpoint of modelsToTry) {
-                try {
-                    const response = await fetch(`${endpoint}?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok && data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-                        return data.candidates[0].content.parts[0].text;
-                    } else if (data.error) {
-                        lastError = data.error.message;
-                    }
-                } catch (err) {
-                    lastError = err.message;
-                }
-            }
-
-            alert("فشل الاتصال بالذكاء الاصطناعي: " + lastError);
-            return null;
+        } catch (err) {
+            lastError = err.message;
         }
+    }
+
+    alert("فشل الاتصال بالذكاء الاصطناعي: " + lastError);
+    return null;
+}
 
         // Generate Exam
         async function generateExam() {
